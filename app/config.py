@@ -1,59 +1,53 @@
 from functools import lru_cache
 from typing import List
 
-from pydantic import AnyUrl, Field, field_validator, model_validator
-from pydantic_settings import BaseSettings
+from pydantic import AnyUrl, Field, computed_field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Application configuration loaded from environment variables."""
 
-    environment: str = Field("development", env="ENVIRONMENT")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+    )
 
-    database_url: str = Field(..., env="DATABASE_URL")
+    environment: str = Field(default="development", alias="ENVIRONMENT")
 
-    discord_client_id: str = Field(..., env="DISCORD_CLIENT_ID")
-    discord_client_secret: str = Field(..., env="DISCORD_CLIENT_SECRET")
-    discord_redirect_uri: AnyUrl = Field(..., env="DISCORD_REDIRECT_URI")
-    discord_allowed_guild_ids: List[int] = Field(default_factory=list, env="DISCORD_GUILD_IDS")
+    database_url: str = Field(..., alias="DATABASE_URL")
 
-    jwt_secret_key: str = Field(..., env="JWT_SECRET_KEY")
-    jwt_algorithm: str = Field("HS256", env="JWT_ALGORITHM")
-    jwt_expire_minutes: int = Field(60, env="JWT_EXPIRE_MINUTES")
+    discord_client_id: str = Field(..., alias="DISCORD_CLIENT_ID")
+    discord_client_secret: str = Field(..., alias="DISCORD_CLIENT_SECRET")
+    discord_redirect_uri: AnyUrl = Field(..., alias="DISCORD_REDIRECT_URI")
+    _discord_guild_ids_raw: str = Field(..., alias="DISCORD_GUILD_IDS")
 
-    api_base_path: str = Field("/api", env="API_BASE_PATH")
+    jwt_secret_key: str = Field(..., alias="JWT_SECRET_KEY")
+    jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
+    jwt_expire_minutes: int = Field(default=60, alias="JWT_EXPIRE_MINUTES")
 
-    cors_allow_origins: List[str] = Field(default_factory=list, env="CORS_ALLOW_ORIGINS")
+    api_base_path: str = Field(default="/api", alias="API_BASE_PATH")
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    cors_allow_origins_raw: str | List[str] | None = Field(default=None, alias="CORS_ALLOW_ORIGINS")
 
-    @field_validator("discord_allowed_guild_ids", mode="before")
-    def _parse_guild_ids(cls, value):  # type: ignore[override]
-        if isinstance(value, list):
-            return [int(v) for v in value]
-        if isinstance(value, str):
-            value = value.strip()
-            if not value:
-                return []
-            return [int(v.strip()) for v in value.split(",") if v.strip()]
-        return value
-
-    @field_validator("cors_allow_origins", mode="before")
-    def _parse_origins(cls, value):  # type: ignore[override]
-        if value in (None, "", []):
-            return []
-        if isinstance(value, list):
-            return value
-        return [v.strip() for v in str(value).split(",")]
-
-    @model_validator(mode="after")
-    def _ensure_guilds(self) -> "Settings":
-        if not self.discord_allowed_guild_ids:
+    @computed_field
+    @property
+    def discord_allowed_guild_ids(self) -> List[int]:
+        raw = (self._discord_guild_ids_raw or "").strip()
+        ids = [int(v.strip()) for v in raw.split(",") if v.strip()]
+        if not ids:
             raise ValueError("DISCORD_GUILD_IDS must include at least one guild id.")
-        return self
+        return ids
+
+    @computed_field
+    @property
+    def cors_allow_origins(self) -> List[str]:
+        if self.cors_allow_origins_raw in (None, "", []):
+            return []
+        if isinstance(self.cors_allow_origins_raw, list):
+            return [str(origin).strip() for origin in self.cors_allow_origins_raw if str(origin).strip()]
+        return [origin.strip() for origin in str(self.cors_allow_origins_raw).split(",") if origin.strip()]
 
 
 @lru_cache()
