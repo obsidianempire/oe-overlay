@@ -64,7 +64,7 @@ async def discord_login():
     return Response(status_code=status.HTTP_307_TEMPORARY_REDIRECT, headers={"Location": redirect})
 
 
-@router.post("/callback", response_model=Token)
+@router.api_route("/callback", methods=["POST", "GET"], response_model=Token)
 async def discord_callback(code: str):
     """
     Exchange the Discord OAuth2 code for an access token and mint a JWT
