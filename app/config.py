@@ -21,7 +21,8 @@ class Settings(BaseSettings):
     discord_client_id: str = Field(..., alias="DISCORD_CLIENT_ID")
     discord_client_secret: str = Field(..., alias="DISCORD_CLIENT_SECRET")
     discord_redirect_uri: AnyUrl = Field(..., alias="DISCORD_REDIRECT_URI")
-    discord_allowed_guild_ids: List[int] = Field(default_factory=lambda: [1119640635817853028])
+    _discord_allowed_guild_ids_raw: str | List[str] | None = Field(default=None, alias="DISCORD_GUILD_IDS")
+    _discord_event_role_ids_raw: str | List[str] | None = Field(default=None, alias="DISCORD_EVENT_ROLE_IDS")
 
     jwt_secret_key: str = Field(..., alias="JWT_SECRET_KEY")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
@@ -30,6 +31,7 @@ class Settings(BaseSettings):
     api_base_path: str = Field(default="/api", alias="API_BASE_PATH")
 
     cors_allow_origins_raw: str | List[str] | None = Field(default=None, alias="CORS_ALLOW_ORIGINS")
+    alert_lead_minutes: int = Field(default=15, alias="ALERT_LEAD_MINUTES")
 
     @property
     def cors_allow_origins(self) -> List[str]:
@@ -38,6 +40,39 @@ class Settings(BaseSettings):
         if isinstance(self.cors_allow_origins_raw, list):
             return [str(origin).strip() for origin in self.cors_allow_origins_raw if str(origin).strip()]
         return [origin.strip() for origin in str(self.cors_allow_origins_raw).split(",") if origin.strip()]
+
+    @property
+    def discord_allowed_guild_ids(self) -> List[int]:
+        raw = self._discord_allowed_guild_ids_raw
+        if raw in (None, "", []):
+            return [1119640635817853028]
+        if isinstance(raw, list):
+            values: List[int] = []
+            for item in raw:
+                try:
+                    values.append(int(str(item).strip()))
+                except Exception:
+                    continue
+            return values if values else [1119640635817853028]
+        values: List[int] = []
+        for chunk in str(raw).split(","):
+            chunk = chunk.strip()
+            if not chunk:
+                continue
+            try:
+                values.append(int(chunk))
+            except Exception:
+                continue
+        return values if values else [1119640635817853028]
+
+    @property
+    def discord_event_role_ids(self) -> List[str]:
+        raw = self._discord_event_role_ids_raw
+        if raw in (None, "", []):
+            return []
+        if isinstance(raw, list):
+            return [str(role).strip() for role in raw if str(role).strip()]
+        return [role.strip() for role in str(raw).split(",") if role.strip()]
 
 
 @lru_cache()

@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import auth
 from .config import get_settings
 from .database import Base, engine
-from .routers import data
+from .routers import alerts, crafting, data, events
 
 settings = get_settings()
 
@@ -44,4 +44,6 @@ async def healthcheck() -> dict[str, str]:
 
 app.include_router(auth.router, prefix=settings.api_base_path)
 app.include_router(data.router, prefix=settings.api_base_path)
-
+app.include_router(events.router, prefix=settings.api_base_path)
+app.include_router(crafting.router, prefix=settings.api_base_path)
+app.include_router(alerts.router, prefix=settings.api_base_path)

@@ -1,5 +1,5 @@
 import datetime as dt
-from typing import Optional
+from typing import Dict, List, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -8,7 +8,7 @@ from jose import JWTError, jwt
 from pydantic import BaseModel
 
 from .config import get_settings
-from .schemas import DiscordUser, Token
+from .schemas import DiscordUser, Token, UserInfo
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -22,7 +22,9 @@ class AuthenticatedUser(BaseModel):
     id: str
     username: str
     discriminator: str
-    guild_ids: list[int]
+    guild_ids: List[int]
+    guild_roles: Dict[str, List[str]] = {}
+    can_create_events: bool = False
 
 
 def create_access_token(user: AuthenticatedUser) -> Token:
@@ -33,6 +35,8 @@ def create_access_token(user: AuthenticatedUser) -> Token:
         "username": user.username,
         "discriminator": user.discriminator,
         "guild_ids": user.guild_ids,
+        "guild_roles": user.guild_roles,
+        "can_create_events": user.can_create_events,
         "exp": expire,
         "iss": "oe-overlay-service",
     }
@@ -49,7 +53,7 @@ async def discord_login():
     instead initiate the OAuth flow directly and call `/auth/callback`.
     """
 
-    scope = "identify guilds"
+    scope = "identify guilds guilds.members.read"
     redirect = (
         f"{DISCORD_API_BASE}/oauth2/authorize?"
         f"response_type=code&client_id={settings.discord_client_id}"
@@ -79,11 +83,23 @@ async def discord_callback(code: str):
     if not allowed:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is not part of an authorised guild.")
 
+    guild_roles = await _fetch_member_roles(access_token, allowed)
+    can_create_events = False
+    if settings.discord_event_role_ids:
+        for roles in guild_roles.values():
+            if any(role_id in settings.discord_event_role_ids for role_id in roles):
+                can_create_events = True
+                break
+    else:
+        can_create_events = True
+
     user = AuthenticatedUser(
         id=discord_user.id,
         username=discord_user.username,
         discriminator=discord_user.discriminator,
         guild_ids=allowed,
+        guild_roles=guild_roles,
+        can_create_events=can_create_events,
     )
     return create_access_token(user)
 
@@ -129,6 +145,23 @@ async def _fetch_guild_ids(access_token: str) -> list[int]:
     return [int(guild["id"]) for guild in guilds]
 
 
+async def _fetch_member_roles(access_token: str, guild_ids: List[int]) -> Dict[str, List[str]]:
+    guild_roles: Dict[str, List[str]] = {}
+    if not guild_ids:
+        return guild_roles
+    async with httpx.AsyncClient(timeout=10) as client:
+        for gid in guild_ids:
+            resp = await client.get(
+                f"{DISCORD_API_BASE}/users/@me/guilds/{gid}/member",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                roles = data.get("roles", [])
+                guild_roles[str(gid)] = [str(role) for role in roles]
+    return guild_roles
+
+
 async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> AuthenticatedUser:
     if not credentials or credentials.scheme.lower() != "bearer":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token.")
@@ -145,7 +178,21 @@ async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] =
             username=payload.get("username"),
             discriminator=payload.get("discriminator"),
             guild_ids=guild_ids,
+            guild_roles=payload.get("guild_roles", {}),
+            can_create_events=payload.get("can_create_events", False),
         )
     except JWTError as exc:  # pragma: no cover - defensive
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token.") from exc
 
+
+@router.get("/me", response_model=UserInfo)
+async def get_me(user: AuthenticatedUser = Depends(get_current_user)) -> UserInfo:
+    return UserInfo(
+        id=user.id,
+        username=user.username,
+        discriminator=user.discriminator,
+        guild_ids=user.guild_ids,
+        guild_roles=user.guild_roles,
+        can_create_events=user.can_create_events,
+        alert_lead_minutes=settings.alert_lead_minutes,
+    )
