@@ -32,7 +32,7 @@ server/
 
 | Variable | Description |
 |----------|-------------|
-| `DATABASE_URL` | Postgres connection string (`postgresql+asyncpg://user:pass@host:port/db`) |
+| `DATABASE_URL` | Postgres connection string (`postgresql+psycopg_async://user:pass@host:port/db`) |
 | `DISCORD_CLIENT_ID` | Discord OAuth2 client ID |
 | `DISCORD_CLIENT_SECRET` | Discord OAuth2 client secret |
 | `DISCORD_REDIRECT_URI` | OAuth redirect URI registered with Discord (e.g. `https://<service>.onrender.com/api/auth/callback`) |
@@ -62,7 +62,7 @@ server/
 
 3. **Create the `.env` file**
    ```dotenv
-   DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/oe_overlay
+   DATABASE_URL=postgresql+psycopg_async://postgres:postgres@localhost:5432/oe_overlay
    DISCORD_CLIENT_ID=123456789012345678
    DISCORD_CLIENT_SECRET=super-secret
    DISCORD_REDIRECT_URI=http://localhost:8000/api/auth/callback
@@ -112,7 +112,7 @@ server/
    - Environment: `Python`
 
 3. **Configure environment variables**
-   - `DATABASE_URL`: use the Render Postgres internal connection string but ensure it begins with `postgresql+asyncpg://`
+   - `DATABASE_URL`: use the Render Postgres internal connection string but ensure it begins with `postgresql+psycopg_async://`
    - `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET`: from your Discord developer application
    - `DISCORD_REDIRECT_URI`: `https://<render-service>.onrender.com/api/auth/callback`
    - `DISCORD_GUILD_IDS`: the numeric guild ID for Obsidian Empire (and any others you want to allow)
