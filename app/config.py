@@ -1,7 +1,8 @@
 from functools import lru_cache
-from typing import List, Optional
+from typing import List
 
-from pydantic import AnyUrl, BaseSettings, Field, validator
+from pydantic import AnyUrl, Field, field_validator, model_validator
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -29,21 +30,30 @@ class Settings(BaseSettings):
         env_file_encoding = "utf-8"
         case_sensitive = False
 
-    @validator("discord_allowed_guild_ids", pre=True)
+    @field_validator("discord_allowed_guild_ids", mode="before")
     def _parse_guild_ids(cls, value):  # type: ignore[override]
         if isinstance(value, list):
             return [int(v) for v in value]
-        if isinstance(value, str) and value.strip():
-            return [int(v.strip()) for v in value.split(",")]
-        raise ValueError("DISCORD_GUILD_IDS must include at least one guild id.")
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return []
+            return [int(v.strip()) for v in value.split(",") if v.strip()]
+        return value
 
-    @validator("cors_allow_origins", pre=True)
+    @field_validator("cors_allow_origins", mode="before")
     def _parse_origins(cls, value):  # type: ignore[override]
-        if not value:
+        if value in (None, "", []):
             return []
         if isinstance(value, list):
             return value
         return [v.strip() for v in str(value).split(",")]
+
+    @model_validator(mode="after")
+    def _ensure_guilds(self) -> "Settings":
+        if not self.discord_allowed_guild_ids:
+            raise ValueError("DISCORD_GUILD_IDS must include at least one guild id.")
+        return self
 
 
 @lru_cache()
@@ -51,4 +61,3 @@ def get_settings() -> Settings:
     """Return cached settings instance."""
 
     return Settings()
-
