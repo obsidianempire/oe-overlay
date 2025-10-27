@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     environment: str = Field("development", env="ENVIRONMENT")
 
-    database_url: AnyUrl = Field(..., env="DATABASE_URL")
+    database_url: str = Field(..., env="DATABASE_URL")
 
     discord_client_id: str = Field(..., env="DISCORD_CLIENT_ID")
     discord_client_secret: str = Field(..., env="DISCORD_CLIENT_SECRET")

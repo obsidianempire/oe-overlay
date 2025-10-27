@@ -1,7 +1,7 @@
 import datetime as dt
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Token(BaseModel):
@@ -20,8 +20,7 @@ class EventBase(BaseModel):
 class EventOut(EventBase):
     id: int
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RosterMemberBase(BaseModel):
@@ -33,8 +32,7 @@ class RosterMemberBase(BaseModel):
 class RosterMemberOut(RosterMemberBase):
     id: int
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AttendanceRecordOut(BaseModel):
@@ -43,8 +41,7 @@ class AttendanceRecordOut(BaseModel):
     event_date: dt.datetime
     members: List[str]
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DiscordUser(BaseModel):
@@ -52,4 +49,3 @@ class DiscordUser(BaseModel):
     username: str
     discriminator: str
     avatar: Optional[str] = None
-
