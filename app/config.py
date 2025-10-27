@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import List
 
-from pydantic import AnyUrl, Field, computed_field
+from pydantic import AnyUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     discord_client_id: str = Field(..., alias="DISCORD_CLIENT_ID")
     discord_client_secret: str = Field(..., alias="DISCORD_CLIENT_SECRET")
     discord_redirect_uri: AnyUrl = Field(..., alias="DISCORD_REDIRECT_URI")
-    _discord_guild_ids_raw: str = Field(..., alias="DISCORD_GUILD_IDS")
+    discord_allowed_guild_ids: List[int] = Field(default_factory=lambda: [1119640635817853028])
 
     jwt_secret_key: str = Field(..., alias="JWT_SECRET_KEY")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
@@ -31,16 +31,6 @@ class Settings(BaseSettings):
 
     cors_allow_origins_raw: str | List[str] | None = Field(default=None, alias="CORS_ALLOW_ORIGINS")
 
-    @computed_field
-    @property
-    def discord_allowed_guild_ids(self) -> List[int]:
-        raw = (self._discord_guild_ids_raw or "").strip()
-        ids = [int(v.strip()) for v in raw.split(",") if v.strip()]
-        if not ids:
-            raise ValueError("DISCORD_GUILD_IDS must include at least one guild id.")
-        return ids
-
-    @computed_field
     @property
     def cors_allow_origins(self) -> List[str]:
         if self.cors_allow_origins_raw in (None, "", []):
