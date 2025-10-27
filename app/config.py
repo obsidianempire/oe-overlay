@@ -21,8 +21,8 @@ class Settings(BaseSettings):
     discord_client_id: str = Field(..., alias="DISCORD_CLIENT_ID")
     discord_client_secret: str = Field(..., alias="DISCORD_CLIENT_SECRET")
     discord_redirect_uri: AnyUrl = Field(..., alias="DISCORD_REDIRECT_URI")
-    discord_allowed_guild_ids_env: str | List[str] | None = Field(default=None, alias="DISCORD_GUILD_IDS")
-    discord_event_role_ids_env: str | List[str] | None = Field(default=None, alias="DISCORD_EVENT_ROLE_IDS")
+    discord_allowed_guild_ids_env: str | List[str] | int | List[int] | None = Field(default=None, alias="DISCORD_GUILD_IDS")
+    discord_event_role_ids_env: str | List[str] | int | List[int] | None = Field(default=None, alias="DISCORD_EVENT_ROLE_IDS")
 
     jwt_secret_key: str = Field(..., alias="JWT_SECRET_KEY")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
